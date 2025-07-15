@@ -336,6 +336,9 @@
       <button type="button" class="tablinks" onclick="openTab(event, 'tab13')">13. CPS</button>
       <button type="button" class="tablinks" onclick="openTab(event, 'tab14')">14. Mandats
       <button type="button" class="tablinks" onclick="openTab(event, 'tab15')">15. Ct maintenance
+      <button type="button" class="tablinks" onclick="openTab(event, 'tab16')">16. Devis
+  
+</button>  
   
 </button>
   
@@ -951,7 +954,7 @@
   </div>
 </div>
 
-<!-- TAB 1(5) : Contrat maintenance -->
+<!-- TAB 15 : Contrat maintenance -->
 <div id="tab15" class="tabContent">
   <div class="tabLogo">
     <img src="https://raw.githubusercontent.com/m2arek/parallele/main/frh_pro_logo.png" alt="FRH Pro Logo"/>
@@ -963,6 +966,33 @@
     <button type="button" id="generateMaintenanceBtn">Générer Contrat Maintenance</button>
   </div>
 </div>
+<!-- TAB 16 : Devis -->
+<div id="tab16" class="tabContent">
+  <div class="tabLogo">
+    <img src="https://raw.githubusercontent.com/m2arek/parallele/main/frh_pro_logo.png" alt="FRH Pro Logo"/>
+    <h2>Devis</h2>
+  </div>
+  <div class="form-section">
+    <h3>Générer Devis</h3>
+    <p>Cliquez ci-dessous pour générer le PDF de devis.</p>
+    <button type="button" id="generateDevisBtn">Générer Devis PDF</button>
+
+    <!-- Nouveau sélecteur TVA -->
+    <label for="tvaSelect" style="margin-left:15px;"><strong>TVA :</strong></label>
+    <select
+      id="tvaSelect"
+      name="tva"
+      style="width:auto !important; display:inline-block; min-width:80px; margin-left:5px;"
+    >
+      <option value="20" selected>20</option>
+      <option value="10">10</option>
+      <option value="5">5</option>
+      <option value="2.1">2.1</option>
+    </select>
+  </div>
+</div>
+
+
 
   <script>
     let curveChart = null;
@@ -3498,6 +3528,127 @@ document.getElementById('generateMaintenanceBtn').addEventListener('click', asyn
   const link     = document.createElement('a');
   link.href      = URL.createObjectURL(blob);
   link.download  = `Contrat_maintenance_${companyName}.pdf`;
+  link.click();
+});
+
+// Onglet Devis : génération du PDF pré-rempli
+document.getElementById('generateDevisBtn').addEventListener('click', async () => {
+  // 1) Collecte des données
+  const companyName    = document.getElementById('companyName').value.trim() || 'Entreprise';
+  const adresseEntree  = document.getElementById('Adresse').value.trim() || '';
+  const phoneValue     = document.getElementById('telephone').value.trim() || '';
+  const emailValue     = document.getElementById('email').value.trim() || '';
+  const nombreModules  = document.getElementById('nombreModulesForced')
+                             .textContent.trim().replace(/\s/g,'') || '0';
+  const marqueModule   = document.getElementById('marqueModuleSelect').value || '';
+  const installedKWc   = parseFloat(document.getElementById('forcedPower').value) || 0;
+  const puissanceValue = (installedKWc * 1000).toString();
+  const nbrOnduleurs   = document.getElementById('nbrOnduleurs').value.trim() || '1';
+  const marqueOnduleur = document.getElementById('marqueOnduleurSelect').value || '';
+  const remiseForced   = document.getElementById('remiseForced').value.trim() || '';
+  const tva            = document.getElementById('tvaSelect').value;  // ex. "20%"
+
+  // 2) Extraction CP / ville / adresse avant CP
+  const m            = adresseEntree.match(/(\d{5})\s*(.*)$/);
+  const cp           = m ? m[1] : '';
+  const ville        = m ? m[2] : '';
+  const bm           = adresseEntree.match(/^(.*?)(?=\d{5})/);
+  const adresseOnly  = bm ? bm[1].trim() : adresseEntree;
+
+  // 3) Numéro CPS / date
+  const now        = new Date();
+  const year       = now.getFullYear();
+  const month      = String(now.getMonth() + 1).padStart(2,'0');
+  const day        = String(now.getDate()).padStart(2,'0');
+  const hour       = String(now.getHours()).padStart(2,'0');
+  const numcps     = `${year}${month}${hour}`;
+  const dateString = `${day}/${month}/${year}`;
+
+  // 4) Numéro client aléatoire
+  const numclient = Math.floor(5200 + Math.random() * (7800 - 5200 + 1));
+
+  // 5) Coût brut avant remise
+  const territory  = document.getElementById('territory').value || 'France Metropolitaine';
+  const forcedCost = costInstallation(installedKWc, territory);
+
+  // 6) Calculs HT/TVA/TTC
+  const remiseNum      = remiseForced ? parseFloat(remiseForced) : 0;
+  const htValueNum     = forcedCost - remiseNum;
+  const tvaNum         = parseFloat(tva) || 0;
+  const totaltvaNum    = htValueNum * tvaNum / 100;
+  const totalttcNum    = htValueNum + totaltvaNum;
+  const ttcRemiseNum   = remiseNum * (1 + tvaNum/100);
+
+  // 7) Charger template et préparer PDF
+  const existingPdfBytes = await fetch('devis_metropole.pdf').then(r => r.arrayBuffer());
+  const pdfDoc = await PDFLib.PDFDocument.load(existingPdfBytes, { updateFieldAppearances: false });
+  pdfDoc.registerFontkit(fontkit);
+  const fontBytes = await fetch('fonts/arialbd.ttf').then(r => r.arrayBuffer());
+  const arialBold = await pdfDoc.embedFont(fontBytes);
+  const form = pdfDoc.getForm();
+  form.updateFieldAppearances(arialBold, { fontSize: 9 });
+
+  // 8) Ventilation du brut en quatre postes
+  const htAdminNum  = forcedCost * 0.05;  // 5%
+  const htFournNum  = forcedCost * 0.70;  // 70%
+  const htLogisNum  = forcedCost * 0.05;  // 5%
+  const htPoseNum   = forcedCost * 0.20;  // 20%
+
+  // 9) Calcul TTC par poste
+  const ttcAdminNum = htAdminNum * (1 + tvaNum/100);
+  const ttcFournNum = htFournNum * (1 + tvaNum/100);
+  const ttcLogisNum = htLogisNum * (1 + tvaNum/100);
+  const ttcPoseNum  = htPoseNum  * (1 + tvaNum/100);
+
+  // 10) Formatage 2 décimales + €
+  form.getTextField('htadmin').setText(`${htAdminNum.toFixed(2)} €`);
+  form.getTextField('htfourn').setText(`${htFournNum.toFixed(2)} €`);
+  form.getTextField('htlogis').setText(`${htLogisNum.toFixed(2)} €`);
+  form.getTextField('htpose') .setText(`${htPoseNum.toFixed(2)} €`);
+
+  form.getTextField('ttcadmin').setText(`${ttcAdminNum.toFixed(2)} €`);
+  form.getTextField('ttcfourn').setText(`${ttcFournNum.toFixed(2)} €`);
+  form.getTextField('ttclogis').setText(`${ttcLogisNum.toFixed(2)} €`);
+  form.getTextField('ttcpose') .setText(`${ttcPoseNum.toFixed(2)} €`);
+
+  // 11) Injection des autres champs
+  form.getTextField('numcps')    .setText(numcps);
+  form.getTextField('date')      .setText(dateString);
+  form.getTextField('numclient').setText(String(numclient));
+
+  form.getTextField('societe')   .setText(companyName);
+  form.getTextField('adresse')   .setText(adresseOnly);
+  form.getTextField('cp')        .setText(cp);
+  form.getTextField('ville')     .setText(ville);
+  form.getTextField('telephone').setText(phoneValue);
+  form.getTextField('email')     .setText(emailValue);
+
+  form.getTextField('nbmodules') .setText(nombreModules);
+  form.getTextField('mqemodule') .setText(marqueModule);
+  form.getTextField('puissance').setText(puissanceValue);
+  form.getTextField('nbondul')   .setText(nbrOnduleurs);
+  form.getTextField('mqeondul')  .setText(marqueOnduleur);
+
+  form.getTextField('totalht')   .setText(`${htValueNum.toFixed(2)} €`);
+  form.getTextField('tva')       .setText(tva);
+  form.getTextField('totaltva')  .setText(`${totaltvaNum.toFixed(2)} €`);
+  form.getTextField('totalttc')  .setText(`${totalttcNum.toFixed(2)} €`);
+
+  if (remiseForced) {
+    form.getTextField('txtremise').setText('Remise commerciale');
+    form.getTextField('remise')    .setText(`-${remiseNum.toFixed(2)} €`);
+    form.getTextField('ttcremise') .setText(`-${ttcRemiseNum.toFixed(2)} €`);
+  }
+
+  // 12) Reconstruire les apparences
+  //form.updateFieldAppearances(arialBold, { fontSize: 9 });
+
+  // 13) Sauvegarde et téléchargement
+  const pdfBytes = await pdfDoc.save();
+  const blob     = new Blob([pdfBytes], { type: 'application/pdf' });
+  const link     = document.createElement('a');
+  link.href      = URL.createObjectURL(blob);
+  link.download  = `Devis_${companyName}.pdf`;
   link.click();
 });
 
