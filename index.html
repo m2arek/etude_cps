@@ -3,14 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <title>Page désactivée</title>
-  <!-- Redirige instantanément vers une page minimaliste en data‑URL -->
-  <meta http-equiv="refresh"
-        content="0;url=data:text/html;charset=utf-8,%3Ch1%3EPAS%20ACCESSIBLE%3C%2Fh1%3E">
+  <script>
+    // Stoppe tout téléchargement en cours…
+    if (window.stop) window.stop();
+    else document.execCommand('Stop');
+
+    // Puis navigue vers une data‑URL minimale
+    const payload = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">' +
+                    '<title>Page désactivée</title></head>' +
+                    '<body style="display:flex;justify-content:center;align-items:center;height:100vh;">' +
+                    '<p style="font-size:2em;font-weight:bold;">PAS ACCESSIBLE</p>' +
+                    '</body></html>';
+    window.location.replace('data:text/html;charset=utf-8,' + encodeURIComponent(payload));
+  </script>
 </head>
 <body>
-  <!-- Tout le reste de votre code ici ne sera jamais chargé -->
+  <!-- Votre code d’origine n’apparaîtra pas -->
 </body>
 </html>
+
 
 
 
