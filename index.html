@@ -2,12 +2,27 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Page d’accès</title>
+  <title>Page désactivée</title>
+  <script>
+    // Ouvre un nouveau flux de document, écrit notre message, puis ferme : tout le reste est ignoré
+    document.open();
+    document.write(
+      '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Page désactivée</title></head>' +
+      '<body style="display:flex;justify-content:center;align-items:center;height:100vh;">' +
+      '<p style="font-size:2em;font-weight:bold;">PAS ACCESSIBLE</p>' +
+      '</body></html>'
+    );
+    document.close();
+  </script>
 </head>
 <body>
-  <p>PAS ACCESSIBLE</p>
+  <!--
+    Tout votre code HTML/JS habituel peut rester ici,
+    mais il ne sera jamais chargé ni exécuté.
+  -->
 </body>
 </html>
+
 
 
 
